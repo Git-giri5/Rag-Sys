@@ -19,11 +19,27 @@ export type ChatResponse = {
   sources: Source[];
 };
 
+type ValidationError = { loc?: (string | number)[]; msg?: string };
+
+/** FastAPI returns a string for HTTPException and an array of errors for 422s. */
+function formatDetail(detail: unknown): string | null {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return (
+      (detail as ValidationError[])
+        .map((error) => [error.loc?.join("."), error.msg].filter(Boolean).join(": "))
+        .filter(Boolean)
+        .join("; ") || null
+    );
+  }
+  return null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, init);
   if (!response.ok) {
-    const detail = await response.json().catch(() => null);
-    throw new Error(detail?.detail ?? `Request failed with status ${response.status}`);
+    const body = await response.json().catch(() => null);
+    throw new Error(formatDetail(body?.detail) ?? `Request failed with status ${response.status}`);
   }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }

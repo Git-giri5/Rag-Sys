@@ -66,7 +66,7 @@ def query(question: str, top_k: int, document_ids: list[str] | None = None) -> l
                 document_id=str(metadata.get("document_id", "")),
                 filename=str(metadata.get("filename", "")),
                 chunk_index=int(metadata.get("chunk_index", 0)),
-                score=round(1.0 - float(distance), 4),
+                score=round(max(0.0, 1.0 - float(distance)), 4),
                 text=text,
             )
         )
@@ -93,8 +93,13 @@ def list_documents() -> list[DocumentInfo]:
     return sorted(counts.values(), key=lambda doc: doc.filename)
 
 
-def delete_document(document_id: str) -> None:
-    get_collection().delete(where={"document_id": document_id})
+def delete_document(document_id: str) -> bool:
+    """Delete a document's chunks; returns False if it was not indexed."""
+    collection = get_collection()
+    if not collection.get(where={"document_id": document_id}, limit=1)["ids"]:
+        return False
+    collection.delete(where={"document_id": document_id})
+    return True
 
 
 def count_chunks() -> int:

@@ -66,7 +66,10 @@ def documents() -> list[DocumentInfo]:
 
 @app.delete("/documents/{document_id}", status_code=204)
 def delete_document(document_id: str) -> None:
-    store.delete_document(document_id)
+    if not store.delete_document(document_id):
+        raise HTTPException(status_code=404, detail=f"Unknown document '{document_id}'.")
+    for path in Path(settings.upload_dir).glob(f"{document_id}-*"):
+        path.unlink(missing_ok=True)
 
 
 @app.post("/chat", response_model=ChatResponse)
